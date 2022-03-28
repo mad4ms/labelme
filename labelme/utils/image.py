@@ -11,6 +11,9 @@ def img_data_to_pil(img_data):
     f = io.BytesIO()
     f.write(img_data)
     img_pil = PIL.Image.open(f)
+    print("img_data_to_pil")
+    print(img_pil.get_format_mimetype())
+    print(PIL.Image.Image.getextrema(img_pil))
     return img_pil
 
 

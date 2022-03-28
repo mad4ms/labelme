@@ -6,6 +6,8 @@ import os
 import os.path as osp
 import re
 import webbrowser
+import numpy as np
+from PIL import Image
 
 import imgviz
 from qtpy import QtCore
@@ -24,6 +26,9 @@ from labelme.label_file import LabelFileError
 from labelme.logger import logger
 from labelme.shape import Shape
 from labelme.widgets import BrightnessContrastDialog
+from labelme.widgets import ImageEqualization
+from labelme.widgets import CannyEdgeDialog
+from labelme.widgets import DepthmapDialog
 from labelme.widgets import Canvas
 from labelme.widgets import LabelDialog
 from labelme.widgets import LabelListWidget
@@ -508,6 +513,30 @@ class MainWindow(QtWidgets.QMainWindow):
             "Adjust brightness and contrast",
             enabled=False,
         )
+        imageEqualization = action(
+            "&Image Equalization",
+            self.imageEqualization,
+            None,
+            "color",
+            "Apply histogram equalization",
+            enabled=False,
+        )
+        cannyEdge = action(
+            "&CannyEdge",
+            self.cannyEdge,
+            None,
+            "color",
+            "Apply edge detection",
+            enabled=False,
+        )
+        depthmap = action(
+            "&Depthmap",
+            self.depthmap,
+            None,
+            "color",
+            "Apply depth map",
+            enabled=False,
+        )
         # Group zoom controls into a list for easier toggling.
         zoomActions = (
             self.zoomWidget,
@@ -586,6 +615,9 @@ class MainWindow(QtWidgets.QMainWindow):
             fitWindow=fitWindow,
             fitWidth=fitWidth,
             brightnessContrast=brightnessContrast,
+            imageEqualization=imageEqualization,
+            cannyEdge=cannyEdge,
+            depthmap=depthmap,
             zoomActions=zoomActions,
             openNextImg=openNextImg,
             openPrevImg=openPrevImg,
@@ -631,6 +663,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 createLineStripMode,
                 editMode,
                 brightnessContrast,
+                imageEqualization,
+                cannyEdge,
+                depthmap,
             ),
             onShapesPresent=(saveAs, hideAll, showAll),
         )
@@ -688,6 +723,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 fitWidth,
                 None,
                 brightnessContrast,
+                imageEqualization,
+                cannyEdge,
+                depthmap,
+
             ),
         )
 
@@ -719,6 +758,9 @@ class MainWindow(QtWidgets.QMainWindow):
             delete,
             undo,
             brightnessContrast,
+            imageEqualization,
+            cannyEdge,
+            depthmap,
             None,
             zoom,
             fitWidth,
@@ -1411,6 +1453,30 @@ class MainWindow(QtWidgets.QMainWindow):
         contrast = dialog.slider_contrast.value()
         self.brightnessContrast_values[self.filename] = (brightness, contrast)
 
+    def imageEqualization(self, value):
+        dialog = ImageEqualization(
+            utils.img_data_to_pil(self.imageData),
+            self.onNewBrightnessContrast,
+            parent=self,
+        )
+        dialog.exec_()
+
+    def cannyEdge(self, value):
+        dialog = CannyEdgeDialog(
+            utils.img_data_to_pil(self.imageData),
+            self.onNewBrightnessContrast,
+            parent=self,
+        )
+        dialog.exec_()
+
+    def depthmap(self, value):
+        dialog = DepthmapDialog(
+            utils.img_data_to_pil(self.imageData),
+            self.onNewBrightnessContrast,
+            parent=self,
+        )
+        dialog.exec_()
+
     def togglePolygons(self, value):
         for item in self.labelList:
             item.setCheckState(Qt.Checked if value else Qt.Unchecked)
@@ -1469,7 +1535,35 @@ class MainWindow(QtWidgets.QMainWindow):
             if self.imageData:
                 self.imagePath = filename
             self.labelFile = None
+
         image = QtGui.QImage.fromData(self.imageData)
+
+        image_pil = Image.open(filename)
+
+        image_np = np.array(image_pil)
+        if image_np.shape[2] > 3:
+            r, g, b, a = \
+                image_np[:, :, 0], \
+                image_np[:, :, 1], \
+                image_np[:, :, 2], \
+                image_np[:, :, 3]  # for BGRA image
+
+            rgb = np.dstack((r, g, b))  # stacks 3 h x w arrays -> h x w x 3
+        else:
+            rgb = image_np
+
+        # r, g, b, a = image_np
+
+        
+
+        h, w, _ = image_np.shape
+
+        image = QtGui.QImage(
+            rgb, image_np.shape[1], image_np.shape[0], QtGui.QImage.Format_RGB888)
+
+        print("Image format and depth: ")
+        print(image.format())
+        print(image.depth())
 
         if image.isNull():
             formats = [
@@ -1935,7 +2029,7 @@ class MainWindow(QtWidgets.QMainWindow):
         )
         self.importDirImages(targetDirPath)
 
-    @property
+    @ property
     def imageList(self):
         lst = []
         for i in range(self.fileListWidget.count()):

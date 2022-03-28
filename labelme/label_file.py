@@ -3,8 +3,11 @@ import contextlib
 import io
 import json
 import os.path as osp
+import numpy as np
+import matplotlib.pyplot as plt
 
 import PIL.Image
+import cv2
 
 from labelme import __version__
 from labelme.logger import logger
@@ -48,12 +51,22 @@ class LabelFile(object):
     def load_image_file(filename):
         try:
             image_pil = PIL.Image.open(filename)
+            print(image_pil)
+            # image_mpl = plt.imread(filename)
+            # image_cv = cv2.imread(filename)
+            # image_cv = image_cv.astype('uint16')
+            # image_cv = image_cv * 256
+            # image_pil = PIL.Image.fromarray(image_cv, mode="RGBA")
+            print(image_pil)
+            print("Load image file")
+            print(PIL.Image.Image.getextrema(image_pil))
         except IOError:
             logger.error("Failed opening image file: {}".format(filename))
             return
 
         # apply orientation to image according to exif
         image_pil = utils.apply_exif_orientation(image_pil)
+        print(image_pil)
 
         with io.BytesIO() as f:
             ext = osp.splitext(filename)[1].lower()
@@ -61,6 +74,8 @@ class LabelFile(object):
                 format = "PNG"
             elif ext in [".jpg", ".jpeg"]:
                 format = "JPEG"
+            elif ext in [".tiff", ".tif"]:
+                format = "TIFF"
             else:
                 format = "PNG"
             image_pil.save(f, format=format)
